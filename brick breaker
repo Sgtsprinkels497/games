@@ -1,0 +1,156 @@
+import pygame
+import sys
+import random
+
+pygame.init()
+
+WIDTH, HEIGHT = 480, 360
+FPS = 60
+
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+GREEN = (0, 220, 100)
+RED = (220, 30, 60)
+BLUE = (40, 100, 255)
+PURPLE = (80, 20, 140)
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Brick Breaker")
+clock = pygame.time.Clock()
+
+font = pygame.font.Font(None, 36)
+big_font = pygame.font.Font(None, 80)
+
+PADDLE_W = 90
+PADDLE_H = 14
+paddle_x = WIDTH // 2 - PADDLE_W // 2
+paddle_y = HEIGHT - 45
+
+BALL_R = 10
+ball_x = WIDTH // 2
+ball_y = HEIGHT // 2
+ball_dx = random.choice([-5, 5])
+ball_dy = -5.5
+
+BRICK_W = 58
+BRICK_H = 24
+BRICK_ROWS = 5
+BRICK_COLS = 7
+BRICK_PAD = 6
+
+bricks = []
+for r in range(BRICK_ROWS):
+    for c in range(BRICK_COLS):
+        x = 25 + c * (BRICK_W + BRICK_PAD)
+        y = 40 + r * (BRICK_H + BRICK_PAD)
+        bricks.append(pygame.Rect(x, y, BRICK_W, BRICK_H))
+
+score = 0
+game_over = False
+you_win = False
+
+def gradient_bg():
+    for i in range(HEIGHT):
+        ratio = i / HEIGHT
+        r = int(80 * (1 - ratio))
+        b = int(140 * ratio)
+        pygame.draw.line(screen, (r, 10, b), (0, i), (WIDTH, i))
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEMOTION:
+            paddle_x = event.pos[0] - PADDLE_W // 2
+            paddle_x = max(0, min(WIDTH - PADDLE_W, paddle_x))
+
+    if not game_over and not you_win:
+        ball_x += ball_dx
+        ball_y += ball_dy
+
+        ball_rect = pygame.Rect(ball_x - BALL_R, ball_y - BALL_R, BALL_R * 2, BALL_R * 2)
+
+        if ball_rect.left <= 0:
+            ball_rect.left = 0
+            ball_dx = -ball_dx
+        if ball_rect.right >= WIDTH:
+            ball_rect.right = WIDTH
+            ball_dx = -ball_dx
+        if ball_rect.top <= 0:
+            ball_rect.top = 0
+            ball_dy = -ball_dy
+
+        paddle_rect = pygame.Rect(paddle_x, paddle_y, PADDLE_W, PADDLE_H)
+        if ball_rect.colliderect(paddle_rect):
+            ball_rect.bottom = paddle_rect.top
+            rel = (ball_rect.centerx - paddle_rect.centerx) / (PADDLE_W / 2)
+            ball_dx = rel * 7.5
+            ball_dy = -abs(ball_dy) - 0.6
+            ball_x = ball_rect.centerx
+            ball_y = ball_rect.centery
+
+        for brick in bricks[:]:
+            if ball_rect.colliderect(brick):
+                ol = ball_rect.right - brick.left
+                or_ = brick.right - ball_rect.left
+                ot = ball_rect.bottom - brick.top
+                ob = brick.bottom - ball_rect.top
+
+                min_h = min(ol, or_)
+                min_v = min(ot, ob)
+
+                if min_h < min_v:
+                    ball_dx = -ball_dx
+                    if ol < or_:
+                        ball_rect.right = brick.left
+                    else:
+                        ball_rect.left = brick.right
+                else:
+                    ball_dy = -ball_dy
+                    if ot < ob:
+                        ball_rect.bottom = brick.top
+                    else:
+                        ball_rect.top = brick.bottom
+
+                ball_x = ball_rect.centerx
+                ball_y = ball_rect.centery
+                bricks.remove(brick)
+                score += 1
+
+                if not bricks:
+                    you_win = True
+                break
+
+        if ball_rect.bottom > HEIGHT:
+            game_over = True
+
+    gradient_bg()
+
+    for brick in bricks:
+        pygame.draw.rect(screen, BLUE, brick)
+        pygame.draw.rect(screen, (100, 160, 255), brick, 2)
+
+    pygame.draw.rect(screen, GREEN, paddle_rect)
+    pygame.draw.rect(screen, WHITE, paddle_rect, 3)
+
+    pygame.draw.circle(screen, WHITE, (int(ball_x), int(ball_y)), BALL_R)
+    pygame.draw.circle(screen, (240, 240, 255), (int(ball_x), int(ball_y)), BALL_R, 2)
+
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    screen.blit(score_text, (12, 8))
+
+    if game_over:
+        text = big_font.render("GAME OVER", True, RED)
+        rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        screen.blit(text, rect)
+    elif you_win:
+        text = big_font.render("YOU WIN!", True, GREEN)
+        rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        screen.blit(text, rect)
+
+    pygame.display.flip()
+    clock.tick(FPS)
+
+pygame.quit()
+sys.exit()
